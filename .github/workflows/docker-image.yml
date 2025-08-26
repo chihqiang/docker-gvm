@@ -1,0 +1,51 @@
+name: docker-image
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      # 拉取仓库代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 GVM 版本为 tag 名称（去掉前缀 v）
+      - name: Set GVM version from tag
+        run: |
+          GVM_VERSION=${GITHUB_REF##*/}
+          GVM_VERSION=${GVM_VERSION#v}
+          echo "GVM_VERSION=$GVM_VERSION" >> $GITHUB_ENV
+          echo "Building GVM version: $GVM_VERSION"
+
+      # 登录 Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 设置 QEMU
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # 设置 Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 构建并推送多平台镜像
+      - name: Build and push multi-platform image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            zhiqiangwang/gvm:${{ env.GVM_VERSION }}
+            zhiqiangwang/gvm:latest
+          build-args: |
+            GVM_VERSION=${{ env.GVM_VERSION }}
